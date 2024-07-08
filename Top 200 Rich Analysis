@@ -1,0 +1,95 @@
+import pandas as pd
+import plotly.express as px
+import dash
+from dash import dcc, html
+from dash.dependencies import Input, Output
+
+# Carregar e pré-processar o conjunto de dados
+file_path = r'C:\Users\Micro\Documents\Estudos\Projetos Kaggle\Top 200 Richest Person in the World.csv'
+data = pd.read_csv(file_path, encoding='latin1')
+
+# Remover símbolo de moeda e converter 'Networth' para numérico
+data['Networth'] = data['Networth'].replace(r'[\$, B]', '', regex=True).astype(float)
+
+# Agregar dados para gráficos
+country_counts = data['Country'].value_counts().nlargest(10)
+industry_counts = data['Industry'].value_counts().nlargest(10)
+
+# Gráficos em Dash
+app = dash.Dash(__name__)
+
+app.layout = html.Div([
+    html.H1("Análise dos 200 Mais Ricos do Mundo"),
+    dcc.Tabs(id="tabs", children=[
+        dcc.Tab(label='Distribuição', children=[
+            dcc.Graph(id='histograma-idade'),
+            dcc.Graph(id='histograma-patrimonio')
+        ]),
+        dcc.Tab(label='Países e Indústrias', children=[
+            dcc.Graph(id='barra-paises'),
+            dcc.Graph(id='barra-industrias')
+        ]),
+        dcc.Tab(label='Boxplot do Patrimônio Líquido por País', children=[
+            dcc.Graph(id='boxplot-networth-country')
+        ])
+    ])
+])
+
+@app.callback(
+    Output('histograma-idade', 'figure'),
+    Input('tabs', 'value')
+)
+def update_histograma_idade(tab):
+    return px.histogram(data, x='Age', nbins=10, title='Distribuição de Idade', color_discrete_sequence=['teal'])
+
+@app.callback(
+    Output('histograma-patrimonio', 'figure'),
+    Input('tabs', 'value')
+)
+def update_histograma_patrimonio(tab):
+    return px.histogram(data, x='Networth', nbins=10, title='Distribuição de Patrimônio Líquido', color_discrete_sequence=['purple'])
+
+@app.callback(
+    Output('barra-paises', 'figure'),
+    Input('tabs', 'value')
+)
+def update_barra_paises(tab):
+    return px.bar(
+        x=country_counts.index, y=country_counts.values, 
+        title='Top 10 Países com Maior Número de Ricos', 
+        labels={'x': 'País', 'y': 'Número de Ricos'},
+        color=country_counts.index, 
+        color_discrete_sequence=px.colors.sequential.Viridis
+    )
+
+@app.callback(
+    Output('barra-industrias', 'figure'),
+    Input('tabs', 'value')
+)
+def update_barra_industrias(tab):
+    return px.bar(
+        x=industry_counts.index, y=industry_counts.values, 
+        title='Top 10 Indústrias com Maior Número de Ricos', 
+        labels={'x': 'Indústria', 'y': 'Número de Ricos'},
+        color=industry_counts.index, 
+        color_discrete_sequence=px.colors.sequential.Magma
+    )
+
+@app.callback(
+    Output('boxplot-networth-country', 'figure'),
+    Input('tabs', 'value')
+)
+def update_boxplot_networth_country(tab):
+    # Criação do boxplot
+    fig = px.box(
+        data, x='Country', y='Networth', 
+        title='Distribuição do Patrimônio Líquido por País',
+        labels={'Country': 'País', 'Networth': 'Patrimônio Líquido (Bilhões de $)'},
+        color='Country',
+        color_discrete_sequence=px.colors.sequential.Plasma
+    )
+    fig.update_layout(xaxis_title='País', yaxis_title='Patrimônio Líquido (Bilhões de $)', xaxis_tickangle=-45)
+    return fig
+
+if __name__ == '__main__':
+    app.run_server(debug=True)
